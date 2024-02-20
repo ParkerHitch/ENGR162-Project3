@@ -12,3 +12,6 @@ class Vector3:
     
     def add(self, vec2):
         return Vector3(self.x + vec2.x, self.y + vec2.y, self.z + vec2.z)
+    
+    def __str__(self):
+        return "" + str(self.x) + ", " + str(self.y) + ", " + str(self.z)

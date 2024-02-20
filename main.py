@@ -1,6 +1,7 @@
 import time
 import brickpi3
 import config
+from src.subsystems.Drivetrain import TwoWheel
 
 
 print("Hello Project 3!")
@@ -12,9 +13,13 @@ BP = brickpi3.BrickPi3()
 # anything else = enabled
 state = 0
 
+dt: TwoWheel
 
 # stuff to do upon starting python
 def robotInit():
+    global dt, BP
+    dt = TwoWheel(BP, config.BP_PORT_D, config.BP_PORT_C)
+    dt.setPowers(0,0)
     return
 
 def enable():
@@ -38,6 +43,11 @@ def onEnable():
 
 # 50 times per second while enabled
 def enabledPeriodic():
+    global dt, state
+    if state == 1:
+        dt.setPowers(0.50,0.50)
+    elif state == 2:
+        dt.setPowers(-0.50,0.50)
     return
 
 # runs once when robot becomes disabled (including when powered on)
@@ -46,6 +56,9 @@ def onDisable():
 
 # runs 50 times per second while disabled
 def disabledPeriodic():
+    global state, dt
+    dt.setPowers(0,0)
+    state = int(input("Enter new state: "))
     return
 
 
