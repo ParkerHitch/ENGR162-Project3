@@ -2,9 +2,6 @@ import grovepi
 
 class GroveLineFinder:
 
-    port = 0
-    last10 = []
-
     # Initialize a llight sensor on port "D" + digitalPort
     def __init__(self, digitalPort):
         self.port = digitalPort

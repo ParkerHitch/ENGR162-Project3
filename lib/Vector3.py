@@ -1,4 +1,5 @@
 from math import pow, sqrt
+from lib.Vector2 import Vector2
 
 class Vector3:
 
@@ -13,5 +14,10 @@ class Vector3:
     def add(self, vec2):
         return Vector3(self.x + vec2.x, self.y + vec2.y, self.z + vec2.z)
     
+
+    # swizzles
+    def xy(self):
+        return Vector2(self.x, self.y)
+
     def __str__(self):
         return "" + str(self.x) + ", " + str(self.y) + ", " + str(self.z)

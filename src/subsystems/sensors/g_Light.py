@@ -2,8 +2,6 @@ import grovepi
 
 class GroveLightSensor:
 
-    port = 0
-
     # Initialize a llight sensor on port "A" + analogPort
     def __init__(self, analogPort, offset=0):
         self.port = analogPort

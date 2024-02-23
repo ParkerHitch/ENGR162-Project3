@@ -6,9 +6,6 @@ import config
 
 class IMU:
 
-
-    mag: Vector3
-
     def __init__(self):
         self.mpu9250 = MPU9250()
         self.accel = Vector3(0,0,0)
@@ -25,10 +22,18 @@ class IMU:
 
 
     def update(self):
-        self.accel = self.mpu9250.readAccel()
-        self.gyro = self.mpu9250.readGyro()
-        self.mag = self.mpu9250.readMagnet()
+        accel = self.mpu9250.readAccel()
+        gyro = self.mpu9250.readGyro()
+        mag = self.mpu9250.readMagnet()
 
+        if(mag.mag() > 0.0001):
+            self.mag = mag
+
+        if(gyro.mag() > 0.0001):
+            self.gyro = gyro
+        
+        if(accel.mag() > 0.0001):
+            self.accel = accel
 
     def getMag(self):
         return self.mag

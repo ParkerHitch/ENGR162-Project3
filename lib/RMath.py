@@ -6,3 +6,6 @@ def maxClamp(max, val):
 
 def clamp(min, max, val):
     return maxClamp(max, minClamp(min, val))
+
+def mod(a, b):
+    return ((a % b) + b) % b

@@ -1,6 +1,7 @@
 import time
 import config
 import lib.RMath as rmath
+import math
 
 class genericPID:
 
@@ -81,3 +82,28 @@ class genericPID:
 
     def atSetpoint(self):
         return self.currentError != None and abs(self.currentError) < self.deadband and abs(self.errorDerivative) < self.velDeadband
+
+class rotationPID(genericPID):
+
+    # Assumes everythin is in radians from -pi to pi
+    minVal = -math.pi
+    maxVal =  math.pi
+    range  = 2 * math.pi
+
+    def setDest(self, dest):
+        # clamp dest to be between -pi and pi
+        nDest = rmath.mod(dest - self.minVal, self.range) + self.minVal
+        return super().setDest(nDest)
+
+    def updateLoop(self, pos):
+        # find current position between -pi and pi
+        nPos = rmath.mod(pos - self.minVal, self.range) + self.minVal
+        diff = self.setpoint - nPos
+
+        # if traveling over 180 degrees, travel < 180 in opposide direction
+        if diff > self.range / 2:
+            nPos += self.range
+        elif diff < -self.range / 2:
+            nPos -= self.range
+        
+        return super().updateLoop(nPos)

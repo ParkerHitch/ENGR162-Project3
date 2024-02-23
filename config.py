@@ -12,3 +12,9 @@ BP_PORT_A = 0x01
 BP_PORT_B = 0x02
 BP_PORT_C = 0x04
 BP_PORT_D = 0x08
+
+# Physical characeteristics
+# Radius of wheels (inches)
+WHEEL_RADIUS = 2.6 / 2
+# Distance between centers of 2 wheels width-wise (inches)
+WHEEL_SEPARATION = 9.8
