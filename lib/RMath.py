@@ -9,3 +9,9 @@ def clamp(min, max, val):
 
 def mod(a, b):
     return ((a % b) + b) % b
+
+def in2cm(inches):
+    return inches * 2.54
+
+def cm2in(centimeters):
+    return centimeters / 2.54

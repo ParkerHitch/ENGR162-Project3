@@ -61,5 +61,8 @@ class NaiveLocalizer:
         self.pos.x = 0.0
         self.pos.y = 0.0
 
+    def addPosCorrection(self, correction:Vector2):
+        self.pos = self.pos.add(correction)
+
     def getPos(self):
         return self.pos

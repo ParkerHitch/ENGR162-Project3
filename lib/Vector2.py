@@ -1,4 +1,4 @@
-from math import pow, sqrt, atan2
+from math import pow, sqrt, atan2, cos, sin
 import math
 
 class Vector2:
@@ -25,7 +25,13 @@ class Vector2:
     def dot(self, vec2):
         return self.x*vec2.x + self.y*vec2.y
     
+    def mul(self, scalar: float):
+        return Vector2(self.x * scalar, self.y * scalar)
 
+    # returns a new vector rotated ang radians ccw
+    def rotate(self, ang):
+        return Vector2( self.x*cos(ang) - self.y*sin(ang),
+                        self.x*sin(ang) + self.y*cos(ang))
 
     def angle(self):
         return atan2(self.y, self.x)

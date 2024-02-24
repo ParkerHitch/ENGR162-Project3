@@ -21,7 +21,7 @@ class genericPID:
     deadband = 0.1
     velDeadband = 0.01
 
-    def __init__(self, p, i, d, max=1, deadband=0.1, velDeadband=0.01, maxI=float('inf')):
+    def __init__(self, p, i, d, max:float=1, deadband=0.1, velDeadband=0.01, maxI=float('inf')):
         self.kP = p
         self.kI = i
         self.kD = d
@@ -81,7 +81,8 @@ class genericPID:
         self.integralAccumulator = 0
 
     def atSetpoint(self):
-        return self.currentError != None and abs(self.currentError) < self.deadband and abs(self.errorDerivative) < self.velDeadband
+        return self.currentError != None and self.errorDerivative != None and \
+                abs(self.currentError) < self.deadband and abs(self.errorDerivative) < self.velDeadband
 
 class rotationPID(genericPID):
 

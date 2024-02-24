@@ -1,5 +1,6 @@
 import config
 import grovepi
+import lib.RMath as rmath
 
 class GroveUltrasonic:
 
@@ -7,9 +8,10 @@ class GroveUltrasonic:
     def __init__(self, digitalPort):
         self.port = digitalPort
     
-    # 0 if black 1 if white
+    # returns distance in centimeters
     def getRawVal(self):
         return grovepi.ultrasonicRead(self.port)
     
-    def hasWall(self):
-        return self.getRawVal() < config.DIST_THRESH
+    # reads distance in inches
+    def getInches(self):
+        return rmath.cm2in(grovepi.ultrasonicRead(self.port))

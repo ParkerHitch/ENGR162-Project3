@@ -6,6 +6,7 @@ from typing import List
 from src.subsystems.Drivetrain import TwoWheel
 from src.subsystems.SensorArray import SensorArray
 from src.subsystems.Localization import NaiveLocalizer
+from src.subsystems.GnC import BasicGnC
 from src.util.PID import *
 from lib.Vector2 import *
 
@@ -24,19 +25,20 @@ localizer: NaiveLocalizer
 destAng: float
 rotPID: rotationPID
 posPID: genericPID
+gnc: BasicGnC
 
 destPoints: List[Vector2]
 currentPoint = 0
 
 # stuff to do upon starting python
 def robotInit():
-    global dt, BP, sensors, localizer, rotPID, posPID
-    rotPID = rotationPID(0.85, 0.02, 0.05, 0.3, math.radians(5), maxI=5)
-    posPID = genericPID(0.3, 0, 0, 0.25, 0.25)
+    global dt, BP, sensors, localizer, gnc
     dt = TwoWheel(BP, config.BP_PORT_D, config.BP_PORT_C)
     dt.setPowers(0,0)
-    sensors = SensorArray(BP, config.BP_PORT_A)
+    sensors = SensorArray(BP, config.BP_PORT_A, 7, 8)
+    sensors.zeroUltrasonicRotor()
     localizer = NaiveLocalizer(sensors, dt)
+    gnc = BasicGnC(dt, sensors, localizer)
     return
 
 def enable():
@@ -60,32 +62,36 @@ def onEnable():
 
 # 50 times per second while enabled
 def enabledPeriodic():
-    global dt, state, localizer, rotPID, posPID, destPoints, currentPoint
+    global dt, state, localizer, destPoints, currentPoint, gnc
     localizer.update()
-    if state == 2:
+    if state == 1:
+        failed = gnc.mainMazeLoop()
+        if failed:
+            disable()
+        
+    elif state == 2:
         print(localizer.getYaw())
         diff = rotPID.updateLoop(localizer.getYaw())
         dt.setPowers(-diff, diff)
     elif state == 4:
-        diff = destPoints[currentPoint].sub(localizer.pos)
-        yawDiff = rmath.maxClamp(diff.mag(), (localizer.getYaw() - diff.angle()))
-        dir = Vector2.fromAngle(localizer.getYaw())
-
-        # print(diff)
-        # print(dir)
-
-        scalarDiff = diff.dot(dir)
-
-        # print(scalarDiff)
-
-        rot = rotPID.updateLoop(yawDiff)
-        drive = (1 - 0.5*math.fabs(rot* (1/rotPID.max))) * -posPID.updateLoop(scalarDiff)
-
-        dt.setPowers(drive - rot, drive + rot) 
-        # dt.setPowers(-rot, rot)
-        # dt.setPowers(drive, drive)
-
-
+        if gnc.turnAndDriveToDest():
+        # if gnc.beelineToDest():
+            state = 41
+    elif state == 41:
+        dt.setPowers(0,0)
+        try:
+            print(f"Arrived at point {currentPoint}")
+            print("[^+c] to continue to next point (or stop if reached all points)")
+            while True:
+                time.sleep(0.1)
+                continue
+        except KeyboardInterrupt:
+            currentPoint += 1
+            if currentPoint >= len(destPoints):
+                state = 0
+            else:
+                gnc.setDest(destPoints[currentPoint])
+                state = 4
     elif state == 20:
         print(localizer.getYaw())
         print(localizer.motLPos, localizer.motRPos)
@@ -100,7 +106,7 @@ def onDisable():
 
 # runs 50 times per second while disabled
 def disabledPeriodic():
-    global state, dt, destAng, localizer, rotPID, destPoints, posPID
+    global state, dt, destAng, localizer, destPoints, currentPoint
     dt.setPowers(0,0)
     state = int(input("Enter new state: "))
     if state == -2:
@@ -126,9 +132,13 @@ def disabledPeriodic():
                 x = float(input(f"Enter x position of point {i+1} (inches): "))
                 y = float(input(f"Enter y position of point {i+1} (inches): "))
                 destPoints.append(Vector2(x, y))
-
-            rotPID.setDest(0)
-            posPID.setDest(0)
+                currentPoint = 0
+            gnc.setDest(destPoints[0])
+    elif state == 1:
+        gnc.startMazeSolve()
+    elif state == -1:
+        gnc.maze.print()
+        state = 0
 
     return
 
