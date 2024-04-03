@@ -18,7 +18,8 @@ class BasicGnC:
         self.dt = dt
         self.sense = sense
         self.loc = loc
-        self.rotPID = rotationPID(0.85, 0.02, 0.05, 0.3, math.radians(5), maxI=5)
+        # self.rotPID = rotationPID(0.85, 0.02, 0.05, 0.3, math.radians(5), maxI=5)
+        self.rotPID = rotationPID(1, 0.02, 0.05, 0.3, math.radians(5), maxI=5)
         self.posPID = genericPID(0.5, 0, 0, 0.25, 0.25)
         self.dest = Vector2()
         self.maze = None
