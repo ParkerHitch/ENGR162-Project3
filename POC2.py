@@ -5,10 +5,12 @@ import math
 from typing import List
 from src.subsystems.Drivetrain import TwoWheel
 from src.subsystems.SensorArray import SensorArray
-from src.subsystems.Localization import NaiveLocalizer
+from src.subsystems.Localization import KalmanLocalizer
 from src.subsystems.GnC import BasicGnC
+from src.subsystems.Mapping import Maze
 from src.util.PID import *
 from lib.Vector2 import *
+import rtime as rt
 
 print("Hello Project 3!")
 
@@ -21,25 +23,27 @@ state = 0
 
 dt: TwoWheel
 sensors: SensorArray
-localizer: NaiveLocalizer
+localizer: KalmanLocalizer
 destAng: float
 rotPID: rotationPID
 posPID: genericPID
 gnc: BasicGnC
+maze: Maze
+rt.tick()
 
 destPoints: List[Vector2]
 currentPoint = 0
 
 # stuff to do upon starting python
 def robotInit():
-    global dt, BP, sensors, localizer, gnc, rotPID
+    global dt, BP, sensors, localizer, gnc, maze
     dt = TwoWheel(BP, config.BP_PORT_D, config.BP_PORT_C)
     dt.setPowers(0,0)
-    sensors = SensorArray(BP, config.BP_PORT_A, 7, 2)
+    sensors = SensorArray(BP, config.BP_PORT_A, 7, 8, 1)
     sensors.zeroUltrasonicRotor()
-    localizer = NaiveLocalizer(sensors, dt)
-    gnc = BasicGnC(dt, sensors, localizer)
-    rotPID = gnc.rotPID
+    maze = Maze(21,21)
+    localizer = KalmanLocalizer(sensors, dt, maze)
+    # gnc = BasicGnC(dt, sensors, localizer)
     return
 
 def enable():
@@ -59,46 +63,48 @@ def stop():
 
 # when robot switches to enable
 def onEnable():
+    rt.tick()
     print("Enabled!")
 
 # 50 times per second while enabled
 def enabledPeriodic():
+    rt.tick()
     global dt, state, localizer, destPoints, currentPoint, gnc
     localizer.update()
-    if state == 1:
-        print(localizer.getPos())
-        failed = gnc.mainMazeLoop()
-        if failed:
-            disable()
-        
-    elif state == 2:
-        print(localizer.getYaw())
-        diff = rotPID.updateLoop(localizer.getYaw())
-        dt.setPowers(-diff, diff)
-    elif state == 4:
-        if gnc.turnAndDriveToDest():
-        # if gnc.beelineToDest():
-            state = 41
-    elif state == 41:
-        dt.setPowers(0,0)
-        try:
-            print(f"Arrived at point {currentPoint}")
-            print("[^+c] to continue to next point (or stop if reached all points)")
-            while True:
-                time.sleep(0.1)
-                continue
-        except KeyboardInterrupt:
-            currentPoint += 1
-            if currentPoint >= len(destPoints):
-                state = 0
-            else:
-                gnc.setDest(destPoints[currentPoint])
-                state = 4
-    elif state == 20:
-        print(localizer.getYaw())
-        print(localizer.motLPos, localizer.motRPos)
-    elif state == 5:
-        print(localizer.sensors.getCurrentIRVal())
+    
+    if state==1:
+        print(localizer.getPos(), localizer.getYaw())
+    # if state == 1:
+    #     failed = gnc.mainMazeLoop()
+    #     if failed:
+    #         disable()
+    #     
+    # elif state == 2:
+    #     print(localizer.getYaw())
+    #     diff = rotPID.updateLoop(localizer.getYaw())
+    #     dt.setPowers(-diff, diff)
+    # elif state == 4:
+    #     if gnc.turnAndDriveToDest():
+    #     # if gnc.beelineToDest():
+    #         state = 41
+    # elif state == 41:
+    #     dt.setPowers(0,0)
+    #     try:
+    #         print(f"Arrived at point {currentPoint}")
+    #         print("[^+c] to continue to next point (or stop if reached all points)")
+    #         while True:
+    #             time.sleep(0.1)
+    #             continue
+    #     except KeyboardInterrupt:
+    #         currentPoint += 1
+    #         if currentPoint >= len(destPoints):
+    #             state = 0
+    #         else:
+    #             gnc.setDest(destPoints[currentPoint])
+    #             state = 4
+    # elif state == 20:
+    #     print(localizer.getYaw())
+    #     print(localizer.motLPos, localizer.motRPos)
     else:
         print(f"Invalid state: {state}")
         disable()
@@ -138,8 +144,8 @@ def disabledPeriodic():
                 destPoints.append(Vector2(x, y))
                 currentPoint = 0
             gnc.setDest(destPoints[0])
-    elif state == 1:
-        gnc.startMazeSolve()
+    # elif state == 1:
+    #     gnc.startMazeSolve()
     elif state == -1:
         gnc.maze.print()
         state = 0

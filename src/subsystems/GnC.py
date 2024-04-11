@@ -24,6 +24,7 @@ class BasicGnC:
         self.dest = Vector2()
         self.maze = None
         self.mazeState = -1
+        self.blocked = []
 
         self.scanResult = [0.0, 0.0, 0.0, 0.0]
         self.readingSum1 = 0
@@ -96,6 +97,7 @@ class BasicGnC:
         self.readingCount1 = 0
         self.readingSum2 = 0
         self.readingCount2 = 0
+
     def startScanLeftRight(self):
         self.mazeState = SCAN_LEFT_RIGHT
         self.sense.setTargetRotorAng((math.pi/2) - self.loc.getYaw()) # 90° ccw (white left)

@@ -2,6 +2,7 @@ from lib.Vector2 import Vector2
 from typing import List
 import math
 import config
+import lib.RMath as rmath
 
 # Maze composed of tiles and walls
 # Each tile has 4 walls that can either be open or closed
@@ -55,6 +56,10 @@ class Maze:
         else:
             self.firstTileY = centerY + (tilesW//2) - 1
             self.lastTileY  = centerY - (tilesW//2)
+
+    # def getWall(self, tileX: int, tileY: int, dir: int) -> float:
+    #     return
+
 
     # Params: x&y pos of tile. dir: 0 = +x, 1 = +y, 2 = -x, 3 = -y
     def isWall(self, tileX: int, tileY: int, dir: int) -> float:
@@ -181,3 +186,81 @@ class Maze:
             (scanDelta[1] + scanDelta[3]) / 2
         )
         return correction
+
+    # Updates map and returns an expected location
+    def localizeAndMap(self, robotPos: Vector2, posUncertanty, robotAng: float, rotorAng: float, sensorReadingW: float, sensorReadingB: float):
+        expected = robotPos
+        count = 1
+        if sensorReadingW != None:
+            expected.add( self.locAndMapHalf(robotPos, posUncertanty, robotAng, rotorAng, sensorReadingW))
+            count += 1
+        if sensorReadingB != None:
+            expected.add( self.locAndMapHalf(robotPos, posUncertanty, robotAng, rotorAng+ math.pi/2, sensorReadingB))
+            count += 1
+        expected = expected.mul(1/count)
+        return expected
+        
+
+
+    def locAndMapHalf(self, robotPos: Vector2, posUncertanty, robotAng: float, rotorAng: float, sensorReadingW: float):
+        increment = Vector2.fromAngle(robotAng + rotorAng)
+        currentTileW = Maze.getNearestTileCoord(robotPos)
+        currentPos = Vector2(robotPos.x, robotPos.y)
+
+        totalDist = 0
+        distEW = 0
+        distNS = 0
+        walls = []
+        wallDists = []
+        closest = -1
+        while totalDist < sensorReadingW + 2.5*config.G_ULTRASONIC_STDEV:
+            #print(totalDist)
+            realativePos = currentPos.sub(currentTileW.mul(config.MAZE_GRID_SIZE))
+            #print(realativePos)
+            if increment.x != 0:
+                if increment.x > 0:
+                    distEW = ((config.MAZE_GRID_SIZE/2) - realativePos.x) / increment.x
+                else:
+                    distEW = ((-config.MAZE_GRID_SIZE/2) - realativePos.x) / increment.x
+            else:
+                distEW = 999999
+            if increment.y != 0:
+                if increment.y > 0:
+                    distNS = ((config.MAZE_GRID_SIZE/2) - realativePos.y) / increment.y
+                else:
+                    distNS= ((-config.MAZE_GRID_SIZE/2) - realativePos.y) / increment.y
+            else:
+                distNS = 999999
+            if abs(distEW) < abs(distNS):
+                # move L/R
+                walls.append([currentTileW.x, currentTileW.y, 0 if increment.x > 0 else 2])
+                traverse = increment.mul(distEW)
+                totalDist += traverse.mag()
+                wallDists.append(totalDist)
+                currentTileW.x += 1 if increment.x > 0 else -1
+                currentPos = currentPos.add(traverse)
+                if closest == -1:
+                    closest = 0
+                elif abs(wallDists[closest]-sensorReadingW) > abs(totalDist-sensorReadingW):
+                    closest = len(wallDists)-1
+            else:
+                # move U/D
+                walls.append([currentTileW.x, currentTileW.y, 1 if increment.y > 0 else 3])
+                traverse = increment.mul(distNS)
+                totalDist += traverse.mag()
+                wallDists.append(totalDist)
+                currentTileW.y += 1 if increment.y > 0 else -1
+                currentPos = currentPos.add(traverse)
+                if closest == -1:
+                    closest = 0
+                elif abs(wallDists[closest]-sensorReadingW) > abs(totalDist-sensorReadingW):
+                    closest = len(wallDists)-1
+        
+        for i in range(closest):
+            self.setWall(walls[i][0], walls[i][1], walls[i][2], 0.5 * self.isWall(walls[i][0], walls[i][1], walls[i][2]))
+        self.setWall(walls[closest][0], walls[closest][1], walls[closest][2], 1.5 * self.isWall(walls[closest][0], walls[closest][1], walls[closest][2]))
+        expectedWhite = wallDists[closest]
+        return robotPos.add(increment.mul(expectedWhite-sensorReadingW))
+
+        
+
