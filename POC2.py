@@ -6,7 +6,7 @@ from typing import List
 from src.subsystems.Drivetrain import TwoWheel
 from src.subsystems.SensorArray import SensorArray
 from src.subsystems.Localization import KalmanLocalizer
-from src.subsystems.GnC import BasicGnC
+from src.subsystems.GnC import GnC
 from src.subsystems.Mapping import Maze
 from src.util.PID import *
 from lib.Vector2 import *
@@ -27,7 +27,7 @@ localizer: KalmanLocalizer
 destAng: float
 rotPID: rotationPID
 posPID: genericPID
-gnc: BasicGnC
+gnc: GnC
 maze: Maze
 rt.tick()
 
@@ -37,13 +37,13 @@ currentPoint = 0
 # stuff to do upon starting python
 def robotInit():
     global dt, BP, sensors, localizer, gnc, maze
-    dt = TwoWheel(BP, config.BP_PORT_D, config.BP_PORT_C)
+    dt = TwoWheel(BP, config.BP_PORT_D, config.BP_PORT_A)
     dt.setPowers(0,0)
-    sensors = SensorArray(BP, config.BP_PORT_A, 7, 8, 1)
-    sensors.zeroUltrasonicRotor()
+    sensors = SensorArray(BP, 2, 7, config.BP_PORT_2)    
+    # sensors.zeroUltrasonicRotor()
     maze = Maze(21,21)
     localizer = KalmanLocalizer(sensors, dt, maze)
-    # gnc = BasicGnC(dt, sensors, localizer)
+    # gnc = GnC(dt, sensors, localizer)
     return
 
 def enable():
@@ -74,6 +74,12 @@ def enabledPeriodic():
     
     if state==1:
         print(localizer.getPos(), localizer.getYaw())
+    if state==60:
+        fName = input("Enter filename to save data to: ")
+        localizer.sensors.imu.saveCalibrationData(fName)
+        disable()
+    elif state==61:
+        localizer.sensors.imu.printMag()
     # if state == 1:
     #     failed = gnc.mainMazeLoop()
     #     if failed:
@@ -105,9 +111,9 @@ def enabledPeriodic():
     # elif state == 20:
     #     print(localizer.getYaw())
     #     print(localizer.motLPos, localizer.motRPos)
-    else:
-        print(f"Invalid state: {state}")
-        disable()
+    # else:
+    #     print(f"Invalid state: {state}")
+    #     disable()
     return
 
 # runs once when robot becomes disabled (including when powered on)

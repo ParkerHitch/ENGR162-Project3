@@ -1,6 +1,7 @@
 from math import pi, radians
 from lib.Vector2 import Vector2
 import lib.RMath as rmath
+import numpy as np
 
 # corosponds to 50 ticks per second
 NS_PER_TICK = 2e7
@@ -22,19 +23,32 @@ WHEEL_RADIUS = 2.75 / 2
 # Distance between centers of 2 wheels width-wise (inches)
 WHEEL_SEPARATION = 6.5
 
-# Vector from center of rotation to the center of the ultrasonic rotor (inches)
-# +x is forward
-ULTRASONIC_ROTOR_OFFSET = Vector2(3.25, 0)
-# ULTRASONIC_ROTOR_OFFSET = Vector2(0, 0)
-# Distance from center of rotor to the point where the sensors read zero (inches)
-ULTRASONIC_ROTOR_RADIUS = 2
+# How far in front of the wheels (inches) the L/R ultrasonic sensors are
+ULTRASONIC_LR_X_OFFSET = 1.5
+# How far to the left/right of the center the 0 reading of the L/R ultrasonic sensors are
+ULTRASONIC_LR_Y_OFFSET = 3.25
 
+# How far in front of the wheels (inches) the 0 reading of the front ultrasonic sensor is
+ULTRASONIC_FORWARD_OFFSET = 4.5
 
 ### --- Sensor Characteristics ---
 # Standard deviation of the grovepi ultrasonic sensors (cm)
 G_ULTRASONIC_STDEV = 2.5
 IR_THRESH = 75
 
+MAG_HARD_VEC = np.array([-10.7330, 12.4613, -47.3299])
+MAG_SOFT_TRANS = np.array([[1.0584, -0.0169, 0.0524],
+    [-0.0169, 1.0680, -0.0802],
+    [0.0524, -0.0802, 0.8934]])
+
+# in inches per second^2
+GRAVITY = 386.0886
+
 ### --- Maze Characteristics ---
 # Width of a typical square (inches)
-MAZE_GRID_SIZE = rmath.cm2in(40)
+# MAZE_GRID_SIZE = rmath.cm2in(40)
+MAZE_GRID_SIZE = 16
+
+MAZE_UNKNOWN_LOWER = 0.4
+MAZE_UNKNOWN_UPPER = 0.6
+

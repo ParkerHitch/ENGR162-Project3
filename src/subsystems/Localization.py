@@ -57,7 +57,7 @@ class KalmanLocalizer:
 
         # Initialize Q (process noise) matrix:
         self.matQ = np.eye(8, dtype=float) * 0.05
-        self.matR = np.eye(6, dtype=float) * 0.003
+        self.matR = np.eye(6, dtype=float) * 0.03
         # and R
         self.matR[0,0] = 0.1
         self.matR[1,1] = 0.1
@@ -92,12 +92,23 @@ class KalmanLocalizer:
 
         self.ekfPredict([tdR, tdL])
         
-        distW, distB = self.sensors.readUltrasonics()
+        distLeft, distRight, distFront = self.sensors.readUltrasonics()
+        # print("Distances", distLeft, distRight, distFront)
         # print(self.getPos())
-        measuredPos = self.maze.localizeAndMap(self.getPos(), None, self.getYaw(), self.sensors.getRotorAng(), distW, distB)
+        measuredPos, xUnc, yUnc = self.maze.threeSenseLocalize(self.getPos(), self.getYaw(), distLeft, distRight, distFront)
+        self.matR[0,0] = xUnc
+        self.matR[1,1] = yUnc
+        self.matR[2,2] = 0.75
+        # print("R", self.matR)
+        # measuredPos = self.getPos()
 
-        # self.ekfUpdate([ measuredPos.x, measuredPos.y, self.sensors.imu.getYaw(), self.sensors.imu.getYawRate(), self.sensors.imu.accel.x, self.sensors.imu.accel.y])
-        self.ekfUpdate([ measuredPos.x, measuredPos.y, self.getYaw(), self.sensors.imu.getYawRate(), self.sensors.imu.accel.x, self.sensors.imu.accel.y])
+        # Accel in worldspace
+        accel = self.sensors.imu.getPlanarAccel().rotate(self.getYaw())
+
+        print("Accel", accel)
+
+        # self.ekfUpdate(np.array([ measuredPos.x, measuredPos.y, self.sensors.imu.getYaw(), self.sensors.imu.getYawRate(), accel.x, accel.y]))
+        self.ekfUpdate(np.array([ measuredPos.x, measuredPos.y, 0, self.sensors.imu.getYawRate(), accel.x, accel.y]))
         return
 
     def getPos(self):
@@ -144,13 +155,19 @@ class KalmanLocalizer:
 
     # Performs the update step based on a measurement and measurement noise
     def ekfUpdate(self, z):
-        print(z)
+        z.shape = (6,1)
+        # print("stateI",self.state)
+        # print("z",z)
+        # print("h", self.matH)
         y = z - np.matmul(self.matH, self.state)
 
+        # print("y",y)
         #print(np.matmul(np.matmul(self.matH, self.covMat), self.matH.T) + self.matR)
 
         K = np.matmul(np.matmul(self.covMat, self.matH.T), 
                       np.linalg.inv(np.matmul(np.matmul(self.matH, self.covMat), self.matH.T) + self.matR))
+
+        # print("K",K)
 
         self.state = self.state + np.matmul(K, y)
 

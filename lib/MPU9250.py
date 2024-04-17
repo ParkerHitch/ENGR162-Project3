@@ -13,6 +13,9 @@
 import smbus
 import time
 import lib.Vector3 as Vec3
+import config
+import math
+import numpy as np
 
 ## MPU9250 Default I2C slave address
 SLAVE_ADDRESS        = 0x68
@@ -101,7 +104,8 @@ class MPU9250:
     def __init__(self, address=SLAVE_ADDRESS):
         self.address = address
         self.configMPU9250(GFS_250, AFS_2G)
-        self.configAK8963(AK8963_MODE_C8HZ, AK8963_BIT_16)
+        # self.configAK8963(AK8963_MODE_C8HZ, AK8963_BIT_16)
+        self.configAK8963(AK8963_MODE_C100HZ, AK8963_BIT_16)
 
     ## Search Device
     #  @param [in] self The object pointer.
@@ -110,9 +114,9 @@ class MPU9250:
     def searchDevice(self):
         who_am_i = bus.read_byte_data(self.address, WHO_AM_I)
         if(who_am_i == DEVICE_ID):
-            return true
+            return True
         else:
-            return false
+            return False
 
     ## Configure MPU-9250
     #  @param [in] self The object pointer.
@@ -127,6 +131,7 @@ class MPU9250:
             self.gres = 1000.0/32768.0
         else:  # gfs == GFS_2000
             self.gres = 2000.0/32768.0
+        self.gres = math.radians(self.gres)
 
         if afs == AFS_2G:
             self.ares = 2.0/32768.0
@@ -137,6 +142,8 @@ class MPU9250:
         else: # afs == AFS_16G:
             self.ares = 16.0/32768.0
 
+        self.ares *= config.GRAVITY
+        
         # sleep off
         bus.write_byte_data(self.address, PWR_MGMT_1, 0x00)
         time.sleep(0.1)
@@ -215,7 +222,7 @@ class MPU9250:
         y = round(y*self.ares, 3)
         z = round(z*self.ares, 3)
 
-        return Vec3.Vector3(x,y,z)
+        return Vec3.Vector3(x, y, z)
 
     ## Read gyro
     #  @param [in] self The object pointer.
@@ -260,7 +267,7 @@ class MPU9250:
                 y = round(y * self.mres * self.magYcoef, 3)
                 z = round(z * self.mres * self.magZcoef, 3)
 
-        return Vec3.Vector3(x,y,z)
+        return np.array([x,y,z])
 
     ## Read temperature
     #  @param [out] temperature temperature(degrees C)
