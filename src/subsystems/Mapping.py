@@ -20,11 +20,6 @@ class Maze:
     # firstTileY = top
     # lastTileY = bottom
 
-    firstTileX: int = 0
-    firstTileY: int = 0
-    lastTileX: int = 0
-    lastTileY: int = 0
-
     # def __init__(self, fillExpansionsWith=0.5):
     #     self.vertWalls = [[0.5, 0.5]]
     #     self.horzWalls = [[0.5, 0.5]]
@@ -131,6 +126,18 @@ class Maze:
 
         self.setWallUnsafe(tileX, tileY, dir, val)
 
+    def addIrHazard(self, tileX, tileY):
+        self.irHazards.append((tileX, tileY))
+
+    def addMagHazard(self, tileX, tileY):
+        self.magHazards.append((tileX, tileY))
+
+    def isSafe(self, tile) -> bool:
+        for hazT in [self.irHazards, self.magHazards]:
+            for haz in hazT:
+                if tile[0]==haz[0] and tile[1]==haz[1]:
+                    return False
+        return True
 
     def print(self):
         for i in range(len(self.vertWalls)):
@@ -152,14 +159,40 @@ class Maze:
         print()
 
 # actual intense logic
-    
+
+    def update3Sense(self, robotPos: Vector2, yaw: float, readings):
+        lrCol = round((robotPos.x + config.ULTRASONIC_LR_X_OFFSET) / config.MAZE_GRID_SIZE)
+        robotRow = round(robotPos.y / config.MAZE_GRID_SIZE)
+        nearestYaw = round(yaw / (math.pi/2)) % 4
+
+        self.setWall(lrCol, robotRow, (nearestYaw+2)%4, 0)
+
+        i = 0
+        for d in range(nearestYaw+3, nearestYaw+3+3):
+            dir = d % 4
+            if(readings[i] > config.MAZE_GRID_SIZE):
+                print(d,"-0",readings[i])
+                self.setWall(lrCol, robotRow, dir, 0)
+            else:
+                print(d,"-1",readings[i])
+                self.setWall(lrCol, robotRow, dir, 1)
+            i += 1
+        
+
+
+
     @staticmethod
     def getNearestTileCoord(realPos: Vector2):
         return Vector2(
             round(realPos.x / config.MAZE_GRID_SIZE),
             round(realPos.y / config.MAZE_GRID_SIZE)
         )
-    
+
+    @staticmethod
+    def nearestDir(yaw):
+        return round(yaw / (math.pi/2)) % 4
+
+
     @staticmethod
     def nexTileWorldPos(initialTile: Vector2, dir: int):
         return initialTile.mul(config.MAZE_GRID_SIZE).add(Vector2(config.MAZE_GRID_SIZE, 0).rotate(dir * math.pi/2))
@@ -174,90 +207,6 @@ class Maze:
         else:
             return [tileX, tileY - 1]
     
-    def threeSenseLocalize(self, robotPos: Vector2, yaw: float, distLeft: float, distRight: float, distFront: float):
-        nearestYaw = round(yaw / (math.pi/2)) % 4
-        if nearestYaw%2 == 0:
-            # lrCol = round((robotPos.x + config.ULTRASONIC_LR_X_OFFSET) / config.MAZE_GRID_SIZE)
-            # robotRow = round(robotPos.y / config.MAZE_GRID_SIZE)
-            
-            readingX = robotPos.x + (config.ULTRASONIC_FORWARD_OFFSET + distFront) * math.cos(yaw)
-            readingLY = robotPos.y + (config.ULTRASONIC_LR_Y_OFFSET + distLeft ) * math.cos(yaw) + config.ULTRASONIC_LR_X_OFFSET * math.sin(yaw)
-            readingRY = robotPos.y - (config.ULTRASONIC_LR_Y_OFFSET + distRight) * math.cos(yaw) + config.ULTRASONIC_LR_X_OFFSET * math.sin(yaw)
-
-            tileCoordFX = round((readingX  - (config.MAZE_GRID_SIZE/2)) /  config.MAZE_GRID_SIZE)
-            tileCoordLY = round((readingLY - (config.MAZE_GRID_SIZE/2)) /  config.MAZE_GRID_SIZE)
-            tileCoordRY = round((readingRY - (config.MAZE_GRID_SIZE/2)) /  config.MAZE_GRID_SIZE)
-            
-            expectedReadingX  = tileCoordFX * config.MAZE_GRID_SIZE + (config.MAZE_GRID_SIZE/2)
-            expectedReadingLY = tileCoordLY * config.MAZE_GRID_SIZE + (config.MAZE_GRID_SIZE/2)
-            expectedReadingRY = tileCoordRY * config.MAZE_GRID_SIZE + (config.MAZE_GRID_SIZE/2)
-
-            diffX = expectedReadingX - readingX
-            diffYR = expectedReadingRY - readingRY
-            diffYL = expectedReadingLY - readingLY
-            diffY = (diffYR*abs(distLeft) + diffYL*abs(distRight)) / (abs(distLeft) + abs(distRight))
-
-            # print("readingX", readingX)
-            # print("readingLY", readingLY)
-            # print("readingRY", readingRY)
-            #
-            # print("TileFX", tileCoordFX)
-            # print("TileLY", tileCoordLY)
-            # print("TileRY", tileCoordRY)
-            #
-            # print("expectedX", expectedReadingX)
-            # print("expectedLY", expectedReadingLY)
-            # print("expectedRY", expectedReadingRY)
-
-            xDist = config.ULTRASONIC_FORWARD_OFFSET+abs(distFront) 
-            yDist = config.ULTRASONIC_LR_Y_OFFSET+max(abs(distLeft), abs(distRight))
-
-            xUnc = (6*xDist)/(4*config.MAZE_GRID_SIZE)
-            yUnc = (3*yDist)/(4*config.MAZE_GRID_SIZE)
-
-            return robotPos.add(Vector2(diffX, diffY)), xUnc, yUnc
-        else:
-            # lrCol = round((robotPos.x + config.ULTRASONIC_LR_X_OFFSET) / config.MAZE_GRID_SIZE)
-            # robotRow = round(robotPos.y / config.MAZE_GRID_SIZE)
-            
-            readingY = robotPos.y + (config.ULTRASONIC_FORWARD_OFFSET + distFront) * math.cos(yaw)
-            readingLX = robotPos.x + (config.ULTRASONIC_LR_Y_OFFSET + distLeft ) * math.cos(yaw) + config.ULTRASONIC_LR_X_OFFSET * math.sin(yaw)
-            readingRX = robotPos.x - (config.ULTRASONIC_LR_Y_OFFSET + distRight) * math.cos(yaw) + config.ULTRASONIC_LR_X_OFFSET * math.sin(yaw)
-
-            tileCoordFY = round((readingY  - (config.MAZE_GRID_SIZE/2)) /  config.MAZE_GRID_SIZE)
-            tileCoordLX = round((readingLX - (config.MAZE_GRID_SIZE/2)) /  config.MAZE_GRID_SIZE)
-            tileCoordRX = round((readingRX - (config.MAZE_GRID_SIZE/2)) /  config.MAZE_GRID_SIZE)
-            
-            expectedReadingY  = tileCoordFY * config.MAZE_GRID_SIZE + (config.MAZE_GRID_SIZE/2)
-            expectedReadingLX = tileCoordLX * config.MAZE_GRID_SIZE + (config.MAZE_GRID_SIZE/2)
-            expectedReadingRX = tileCoordRX * config.MAZE_GRID_SIZE + (config.MAZE_GRID_SIZE/2)
-
-            diffY = expectedReadingY - readingY
-            diffXR = expectedReadingRX - readingRX
-            diffXL = expectedReadingLX - readingLX
-            diffX = (diffXR*abs(distLeft) + diffXL*abs(distRight)) / (abs(distLeft) + abs(distRight))
-     
-            # print("readingX", readingY)
-            # print("readingLY", readingLX)
-            # print("readingRY", readingRX)
-            #
-            # print("TileFX", tileCoordFY)
-            # print("TileLY", tileCoordLX)
-            # print("TileRY", tileCoordRX)
-            #
-            # print("expectedX", expectedReadingY)
-            # print("expectedLY", expectedReadingLX)
-            # print("expectedRY", expectedReadingRX)
-            
-            xDist = config.ULTRASONIC_LR_Y_OFFSET+max(abs(distLeft), abs(distRight))
-            yDist = config.ULTRASONIC_FORWARD_OFFSET+abs(distFront) 
-
-            xUnc = (3*xDist)/(4*config.MAZE_GRID_SIZE)
-            yUnc = (6*yDist)/(4*config.MAZE_GRID_SIZE)
-
-
-            return robotPos.add(Vector2(diffX, diffY)), xUnc, yUnc
- 
 
     #
     # # updates the map based on robot location orientation and scan result

@@ -14,7 +14,7 @@ class SensorArray:
         self.yaw = 0
         self.distLeft = GroveUltrasonic(ultrasonicLeftPort)
         self.distRight = GroveUltrasonic(ultrasonicRightPort)
-        self.distFront = EV3Ultrasonic(BP, frontUltrasonicPort)
+        self.distFront = GroveUltrasonic(frontUltrasonicPort)
 
         self.irSense = DualIR()
         self.irReadingsL = [0.0] * 25
@@ -51,10 +51,15 @@ class SensorArray:
     # In range [0, 1.0]
     def getAverageIRVal(self):
         return (sum(self.irReadingsL) / len(self.irReadingsL), sum(self.irReadingsR) / len(self.irReadingsR))
+    
+    def hasIRHazard(self):
+        return sum(self.getAverageIRVal())/2 > config.IR_THRESH
+
+
 
     # Returns a tuple (leftDist, righDist, frontDist) in inches
     def readUltrasonics(self):
-        return self.distLeft.getInches(), self.distRight.getInches(), self.distFront.getInchesFiltered()
+        return self.distLeft.getInches(), self.distRight.getInches(), self.distFront.getInches()
 
     ### --- ULTRASONIC ROTOR --- ###
     #

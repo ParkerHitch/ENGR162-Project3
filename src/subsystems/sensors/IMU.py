@@ -5,6 +5,7 @@ import time
 import math
 import config
 import numpy as np
+import config
 
 class IMU:
 
@@ -39,6 +40,7 @@ class IMU:
             self.gyro = gyro
         
         if(accel.mag() > 0.0001):
+            accel = accel.rotateAboutY(config.IMU_PITCH)
             self.accel = accel
 
     def printMag(self):

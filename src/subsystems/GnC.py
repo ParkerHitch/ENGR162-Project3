@@ -1,7 +1,7 @@
 from lib.Vector2 import Vector2
 import lib.RMath as rmath
 from src.subsystems.Drivetrain import TwoWheel
-from src.subsystems.Localization import NaiveLocalizer
+from src.subsystems.Localization import KalmanLocalizer
 from src.subsystems.SensorArray import SensorArray
 from src.util.PID import *
 import math
@@ -12,20 +12,25 @@ from src.subsystems.Mapping import Maze
 
 DRIVE_TO_NEXT_POINT = 201
 SCANNING = 202
+ROTATE_TO_ANGLE_PRE_MOVE = 203
+ROTATE_TO_ANGLE_POST_MOVE = 204
+
+HAZARD_BACKUP = 300
 
 class GnC:
 
-    def __init__(self, dt: TwoWheel, sense: SensorArray, loc: NaiveLocalizer):
+    def __init__(self, dt: TwoWheel, sense: SensorArray, loc: KalmanLocalizer, maze: Maze):
         self.dt = dt
         self.sense = sense
         self.loc = loc
-        # self.rotPID = rotationPID(0.85, 0.02, 0.05, 0.3, math.radians(5), maxI=5)
-        self.rotPID = rotationPID(1, 0.02, 0.05, 0.3, math.radians(5), maxI=5)
+        self.maze = maze
+        self.rotPID = rotationPID(0.85, 0.02, 0.05, 0.3, math.radians(5), maxI=5)
+        # self.rotPID = rotationPID(1, 0.02, 0.05, 0.3, math.radians(5), maxI=5)
         self.posPID = genericPID(0.5, 0, 0, 0.25, 0.25)
         self.dest = Vector2()
-        self.maze = Maze(21,21)
         self.mazePath = []
         self.mazeState = -1
+        self.currentPathInd = 0
 
         self.readingCount = 0
         self.readingSumF = 0
@@ -76,19 +81,15 @@ class GnC:
         
         return self.rotPID.atSetpoint() and self.posPID.atSetpoint()
 
+    def rotateToAngle(self):
+        rot = self.rotPID.updateLoop(self.loc.getYaw())
+        self.dt.setPowers(-rot, rot)
+
+
     def setDest(self, dest: Vector2):
         self.rotPID.setDest(0)
         self.posPID.setDest(0)
         self.dest = dest
-
-    # should be called on enabled or whenever we start the maze
-    # zeros yaw and pos and clears all saved maze data
-    def startMazeSolve(self):
-        # fuck memory usage just make it big. It'll probably be faster
-        self.maze = Maze(21,21)
-        self.loc.zeroPos()  
-        self.loc.zeroYaw()
-        self.startScan()
 
     def startScan(self):
         self.mazeState = SCANNING
@@ -98,24 +99,57 @@ class GnC:
         self.readingSumR = 0
         self.readingSumL = 0
 
-    # def startScanFwdBack(self):
-    #     self.mazeState = SCAN_FWD_BACK
-    #     self.sense.setTargetRotorAng(0 - self.loc.getYaw())
-    #     self.readingSum1 = 0
-    #     self.readingCount1 = 0
-    #     self.readingSum2 = 0
-    #     self.readingCount2 = 0
-    #
-    # def startScanLeftRight(self):
-    #     self.mazeState = SCAN_LEFT_RIGHT
-    #     self.sense.setTargetRotorAng((math.pi/2) - self.loc.getYaw()) # 90° ccw (white left)
-    #     self.readingSum1 = 0
-    #     self.readingCount1 = 0
-    #     self.readingSum2 = 0
-    #     self.readingCount2 = 0
+    def startRotatePreMove(self):
+        if self.currentPathInd != len(self.mazePath)-1:
+            self.startScan()
+            dir = Vector2(self.mazePath[self.currentPathInd+1][0],self.mazePath[self.currentPathInd+1][1]).sub(
+                Vector2(self.mazePath[self.currentPathInd][0],self.mazePath[self.currentPathInd][1])
+            ).angle()
+            self.rotPID.setDest(dir)
+            self.mazeState = ROTATE_TO_ANGLE_PRE_MOVE
+        else:
+            self.startScan()
+
+    def startRotatePostMove(self):
+        self.startScan()
+        dir = Vector2(self.mazePath[self.currentPathInd+1][0],self.mazePath[self.currentPathInd+1][1]).sub(
+            Vector2(self.mazePath[self.currentPathInd][0],self.mazePath[self.currentPathInd][1])
+        ).angle()
+        self.rotPID.setDest(dir)
+        self.mazeState = ROTATE_TO_ANGLE_POST_MOVE
+
+
+    def startDriveToNext(self):
+        self.setDest(Vector2(self.mazePath[self.currentPathInd+1][0],self.mazePath[self.currentPathInd+1][1]).mul(config.MAZE_GRID_SIZE))
+        self.mazeState = DRIVE_TO_NEXT_POINT
+
+
+
+
+    def irHazardDetected(self):
+        self.maze.addIrHazard(self.mazePath[self.currentPathInd+1][0],self.mazePath[self.currentPathInd+1][1])
+        self.startHazardBackup()
+
+    def magHazardDetected(self):
+        self.maze.addMagHazard(self.mazePath[self.currentPathInd+1][0],self.mazePath[self.currentPathInd+1][1])
+        self.mazeState = HAZARD_BACKUP
+        
+    def startHazardBackup(self):
+        self.setDest(Vector2(self.mazePath[self.currentPathInd][0],self.mazePath[self.currentPathInd][1]).mul(config.MAZE_GRID_SIZE))
+        self.mazeState = HAZARD_BACKUP
+
+
+
+    def startMazeFresh(self):
+        self.loc.reset()
+        self.startScan()
 
     # Should be called in enabledPeriodic
     def mainMazeLoop(self) -> bool:
+        print("MAZESTATE", self.mazeState)
+        
+        self.sense.update() 
+
         if self.mazeState == -1:
             self.maze.print()
             return True
@@ -146,10 +180,44 @@ class GnC:
         #                 # self.mazeState = -1
         #                 self.gotoNextMazePoint()
         
-        if self.mazeState == DRIVE_TO_NEXT_POINT:
+        if self.mazeState == ROTATE_TO_ANGLE_PRE_MOVE:
+            self.loc.update(False)
+            self.rotateToAngle()
+            print(self.rotPID.currentError)
+            print(self.rotPID.setpoint)
+            print(self.loc.getYaw())
+            if abs(self.rotPID.currentError) < math.radians(25):
+                self.startDriveToNext()
+
+        elif self.mazeState == DRIVE_TO_NEXT_POINT:
             self.loc.update()
-            if self.turnAndDriveToDest():
+
+            if self.sense.hasIRHazard():
+                self.irHazardDetected()
+                self.dt.setPowers(0,0)
+                return False
+
+            if self.dest.sub(self.loc.getPos()).mag() < 2:
+                self.dt.setPowers(0,0)
+                self.startRotatePostMove()
+            else:
+                self.beelineToDest()
+        
+        elif self.mazeState == HAZARD_BACKUP:
+            self.loc.update()
+            self.dt.setPowers(0,0)
+            # if self.dest.sub(self.loc.getPos()).mag() < 2:
+            #     self.startRotatePostMove()
+            # else:
+            #     self.beelineToDest() 
+
+
+        elif self.mazeState == ROTATE_TO_ANGLE_POST_MOVE:
+            self.loc.update(False)
+            self.rotateToAngle()
+            if self.rotPID.atSetpoint():
                 self.startScan()
+
         elif self.mazeState == SCANNING:
             self.dt.setPowers(0,0)
             if self.readingCount < 10:
@@ -158,30 +226,35 @@ class GnC:
                 self.readingSumR += rd
                 self.readingSumL += ld
                 self.readingSumF += fd
-
+            else:
+                readings = [self.readingSumR, self.readingSumF, self.readingSumL]
+                readings = [r/self.readingCount for r in readings]
+                self.maze.update3Sense(self.loc.getPos(), self.loc.getYaw(), readings)
+                self.genNewExplorationPlan(Maze.getNearestTileCoord(self.loc.getPos()), Maze.nearestDir(self.loc.getYaw()))
+                self.startRotatePreMove()
 
         
         return False
 
     # Maze Planning
-    def gotoNextMazePoint(self):
-        # always follow the left wall
-        robotTile = Maze.getNearestTileCoord(self.loc.getPos())
-        for dir in range(1, -3, -1):
-            # if there isn't a wall in that direction
-            if self.maze.isWallVec(robotTile, dir % 4) < 0.5:
-                # go that way
-                self.setDest(Maze.nexTileWorldPos(robotTile, dir % 4))
-                self.mazeState = DRIVE_TO_NEXT_POINT
-                return
-                
-        # if all of our surrounding walls are walls then re-scan
-        self.startScanFwdBack()
+    # def gotoNextMazePoint(self):
+    #     # always follow the left wall
+    #     robotTile = Maze.getNearestTileCoord(self.loc.getPos())
+    #     for dir in range(1, -3, -1):
+    #         # if there isn't a wall in that direction
+    #         if self.maze.isWallVec(robotTile, dir % 4) < 0.5:
+    #             # go that way
+    #             self.setDest(Maze.nexTileWorldPos(robotTile, dir % 4))
+    #             self.mazeState = DRIVE_TO_NEXT_POINT
+    #             return
+    #             
+    #     # if all of our surrounding walls are walls then re-scan
+    #     self.startScanFwdBack()
 
     # updates mazePath to be a plan to reach the nearest completely unexplored area
-    def genNewExplorationPlan(self, startingPoint: Vector2):
+    def genNewExplorationPlan(self, startingPoint: Vector2, startDir=0):
         currentTile = [round(startingPoint.x), round(startingPoint.y)]
-        currentDir = 0
+        currentDir = startDir
         self.mazePath = []
         while not self.maze.isCompletelyUnexplored(currentTile[0], currentTile[1]):
             i = self.pathInd(currentTile[0], currentTile[1])
@@ -194,9 +267,13 @@ class GnC:
                 dir = d % 4
                 # If is open. Assume all unknown walls are open
                 if self.maze.isWall(currentTile[0], currentTile[1], dir) < config.MAZE_UNKNOWN_UPPER:
-                    currentTile = Maze.nextTile(currentTile[0], currentTile[1], dir)
-                    currentDir = dir
-                    break
+                    potentialNext = Maze.nextTile(currentTile[0], currentTile[1], dir)
+                    if self.maze.isSafe(potentialNext):
+                        currentTile = potentialNext
+                        currentDir = dir
+                        break
+        print(self.mazePath)
+        self.currentPathInd = 0
 
     def pathInd(self, tileX, tileY):
         i = 0

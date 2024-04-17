@@ -41,13 +41,15 @@ MAG_SOFT_TRANS = np.array([[1.0584, -0.0169, 0.0524],
     [-0.0169, 1.0680, -0.0802],
     [0.0524, -0.0802, 0.8934]])
 
+IMU_PITCH = radians(6)
+
 # in inches per second^2
 GRAVITY = 386.0886
 
 ### --- Maze Characteristics ---
 # Width of a typical square (inches)
-# MAZE_GRID_SIZE = rmath.cm2in(40)
-MAZE_GRID_SIZE = 16
+MAZE_GRID_SIZE = rmath.cm2in(40)
+# MAZE_GRID_SIZE = 16
 
 MAZE_UNKNOWN_LOWER = 0.4
 MAZE_UNKNOWN_UPPER = 0.6

@@ -3,7 +3,10 @@ import brickpi3
 import config
 from src.subsystems.Drivetrain import TwoWheel
 from src.subsystems.SensorArray import SensorArray
-from src.subsystems.Localization import NaiveLocalizer
+from src.subsystems.Localization import KalmanLocalizer
+from src.subsystems.Mapping import Maze
+from src.subsystems.GnC import GnC
+import rtime
 
 print("Hello Project 3!")
 
@@ -16,15 +19,21 @@ state = 0
 
 dt: TwoWheel
 sensors: SensorArray
-localizer: NaiveLocalizer
+localizer: KalmanLocalizer
+gnc: GnC
 
 # stuff to do upon starting python
 def robotInit():
-    global dt, BP, sensors, localizer
-    dt = TwoWheel(BP, config.BP_PORT_D, config.BP_PORT_C)
+    global dt, BP, sensors, localizer, gnc, maze
+    dt = TwoWheel(BP, config.BP_PORT_D, config.BP_PORT_A)
     dt.setPowers(0,0)
-    sensors = SensorArray(BP, config.BP_PORT_A)
-    localizer = NaiveLocalizer(sensors)
+    sensors = SensorArray(BP, 2, 7, 8)   
+    # sensors.zeroUltrasonicRotor()
+    maze = Maze(21,21)
+    localizer = KalmanLocalizer(sensors, dt)
+
+    gnc = GnC(dt, sensors, localizer, maze)
+
     return
 
 def enable():
@@ -48,12 +57,15 @@ def onEnable():
 
 # 50 times per second while enabled
 def enabledPeriodic():
-    global dt, state, localizer
-    localizer.update()
+    global state, gnc
+    rtime.tick()
     if state == 1:
-        dt.setPowers(0.50,0.50)
-    elif state == 2:
-        dt.setPowers(-0.50,0.50)
+        test = gnc.mainMazeLoop()
+        if test:
+            state = -1
+    elif state == 600:
+        gnc.sense.update()
+        print("accel",gnc.sense.imu.accel)
     return
 
 # runs once when robot becomes disabled (including when powered on)
@@ -62,9 +74,13 @@ def onDisable():
 
 # runs 50 times per second while disabled
 def disabledPeriodic():
-    global state, dt
+    global state, dt, gnc
     dt.setPowers(0,0)
     state = int(input("Enter new state: "))
+    if state == 1:
+        gnc.startMazeFresh()
+    elif state == 2:
+        state = 1
     return
 
 
