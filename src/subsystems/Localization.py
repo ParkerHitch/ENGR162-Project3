@@ -6,7 +6,7 @@ import config
 import math
 import numpy as np
 import rtime as rt
-from src.subsystems.Mapping import Maze
+import lib.RMath as rmath
 
 class KalmanLocalizer:
     
@@ -80,6 +80,7 @@ class KalmanLocalizer:
 
         self.motRPos = math.radians(self.dt.getREncoder())
         self.motLPos = math.radians(self.dt.getLEncoder())
+        self.sensors.ev3Gyro.zeroYaw()
 
     def resetReadings(self):
         self.prevDistR = None
@@ -99,7 +100,7 @@ class KalmanLocalizer:
         self.motRPos = newRPos
         self.motLPos = newLPos
 
-        self.ekfPredict([tdR, tdL])
+        self.ekfPredict([tdL, tdR])
 
         if not doUpdate:
             return
@@ -108,19 +109,21 @@ class KalmanLocalizer:
         # print("Distances", distLeft, distRight, distFront)
         # print(self.getPos())
         measuredPos, xUnc, yUnc = self.threeSenseLocalize(self.getPos(), self.getYaw(), distLeft, distRight, distFront)
-        self.matR[0,0] = xUnc
-        self.matR[1,1] = yUnc
-        self.matR[2,2] = 0.75
+        self.matR[0,0] = xUnc * 50
+        self.matR[1,1] = yUnc * 50
+        self.matR[2,2] = 5
         # print("R", self.matR)
         # measuredPos = self.getPos()
 
         # Accel in worldspace
         accel = self.sensors.imu.getPlanarAccel().rotate(self.getYaw())
-
+        yaw = self.sensors.ev3Gyro.getYawRads()
+        yaw = yaw if yaw!=None else self.getYaw()
         # print("Accel", accel)
 
         # self.ekfUpdate(np.array([ measuredPos.x, measuredPos.y, self.sensors.imu.getYaw(), self.sensors.imu.getYawRate(), accel.x, accel.y]))
-        self.ekfUpdate(np.array([ measuredPos.x, measuredPos.y, 0, self.sensors.imu.getYawRate(), accel.x, accel.y]))
+        # self.ekfUpdate(np.array([ measuredPos.x, measuredPos.y, self.getYaw(), self.sensors.imu.getYawRate(), accel.x, accel.y]))
+        self.ekfUpdate(np.array([ measuredPos.x, measuredPos.y, yaw, self.sensors.imu.getYawRate(), accel.x, accel.y]))
         return
 
     def getPos(self):
@@ -129,10 +132,13 @@ class KalmanLocalizer:
     def getYaw(self):
         return self.state[2, 0]
 
+    def getThetaDot(self):
+        return self.state[5,0]
+
     # updates state vector to be a prediction according to wheel velocities
     def ekfPredict(self, u):
         v = np.sum(u)*config.WHEEL_RADIUS/2
-        thetaDot = (u[1] - u[0]) * config.WHEEL_RADIUS / (2 * config.WHEEL_SEPARATION)
+        thetaDot = (u[1] - u[0]) * config.WHEEL_RADIUS / config.WHEEL_SEPARATION
         xDot = v * math.cos(self.state[2, 0] + thetaDot/2)
         yDot = v * math.sin(self.state[2, 0] + thetaDot/2)
 
@@ -187,8 +193,7 @@ class KalmanLocalizer:
 
 
     # NIGHTMARE NIGHTMARE NIGHTMARE NIGHTMARE NIGHTMARE
-    def threeSenseLocalize(self, robotPos: Vector2, yaw: float, distLeft: float, distRight: float, distFront: float):
-        
+    def threeSenseLocalize(self, robotPos: Vector2, yaw: float, distLeft: float, distRight: float, distFront: float): 
         dr = 0
         dl = 0
         df = 0
@@ -227,7 +232,7 @@ class KalmanLocalizer:
             diffX = expectedReadingX - readingX
             diffYR = expectedReadingRY - readingRY
             diffYL = expectedReadingLY - readingLY
-            diffY = (diffYR*distLeft + diffYL*distRight) / (distLeft + distRight)
+            diffY = (diffYR*(distLeft**2) + diffYL*(distRight**2)) / (distLeft**2 + distRight**2)
             # print("readingX", readingX)
             # print("readingLY", readingLY)
             # print("readingRY", readingRY)
@@ -244,7 +249,7 @@ class KalmanLocalizer:
             xDist = config.ULTRASONIC_FORWARD_OFFSET+abs(distFront) 
             yDist = config.ULTRASONIC_LR_Y_OFFSET+max(abs(distLeft), abs(distRight))
 
-            dx = abs(df)
+            dx = rmath.minClamp(0, abs(df)-12)
             dy = max(abs(dr),abs(dl))
 
             xUnc = (1+dx**3)*(6*xDist)/(4*config.MAZE_GRID_SIZE)
@@ -255,9 +260,9 @@ class KalmanLocalizer:
             # lrCol = round((robotPos.x + config.ULTRASONIC_LR_X_OFFSET) / config.MAZE_GRID_SIZE)
             # robotRow = round(robotPos.y / config.MAZE_GRID_SIZE)
             
-            readingY = robotPos.y + (config.ULTRASONIC_FORWARD_OFFSET + distFront) * math.cos(yaw)
-            readingLX = robotPos.x + (config.ULTRASONIC_LR_Y_OFFSET + distLeft ) * math.cos(yaw) + config.ULTRASONIC_LR_X_OFFSET * math.sin(yaw)
-            readingRX = robotPos.x - (config.ULTRASONIC_LR_Y_OFFSET + distRight) * math.cos(yaw) + config.ULTRASONIC_LR_X_OFFSET * math.sin(yaw)
+            readingY = robotPos.y + (config.ULTRASONIC_FORWARD_OFFSET + distFront) * math.sin(yaw)
+            readingLX = robotPos.x + (config.ULTRASONIC_LR_Y_OFFSET + distLeft ) * math.sin(yaw) + config.ULTRASONIC_LR_X_OFFSET * math.cos(yaw)
+            readingRX = robotPos.x - (config.ULTRASONIC_LR_Y_OFFSET + distRight) * math.sin(yaw) + config.ULTRASONIC_LR_X_OFFSET * math.cos(yaw)
 
             tileCoordFY = round((readingY  - (config.MAZE_GRID_SIZE/2)) /  config.MAZE_GRID_SIZE)
             tileCoordLX = round((readingLX - (config.MAZE_GRID_SIZE/2)) /  config.MAZE_GRID_SIZE)
@@ -270,7 +275,7 @@ class KalmanLocalizer:
             diffY = expectedReadingY - readingY
             diffXR = expectedReadingRX - readingRX
             diffXL = expectedReadingLX - readingLX
-            diffX = (diffXR*distLeft + diffXL*distRight) / (distLeft + distRight)
+            diffX = (diffXR*(distLeft**2) + diffXL*(distRight**2)) / (distLeft**2 + distRight**2)
      
             # print("readingX", readingY)
             # print("readingLY", readingLX)
@@ -288,7 +293,7 @@ class KalmanLocalizer:
             yDist = config.ULTRASONIC_FORWARD_OFFSET+abs(distFront) 
 
             dx = max(abs(dr),abs(dl))
-            dy = abs(df)
+            dy = rmath.minClamp(0, abs(df)-12)
 
             xUnc = (1+dx**3)*(6*xDist)/(4*config.MAZE_GRID_SIZE)
             yUnc = (1+dy**3)*(6*yDist)/(4*config.MAZE_GRID_SIZE)

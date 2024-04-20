@@ -4,17 +4,20 @@ from src.subsystems.sensors.b_Ultrasonic import EV3Ultrasonic
 from src.subsystems.sensors.DualIR import DualIR
 import math
 import config
+from src.subsystems.sensors.b_Gyro import EV3Gyro
 
 class SensorArray:
 
-    def __init__(self, BP, ultrasonicLeftPort, ultrasonicRightPort, frontUltrasonicPort): 
+    def __init__(self, BP, ultrasonicLeftPort, ultrasonicRightPort, frontUltrasonicPort, ev3GyroPort): 
         self.BP = BP
-        self.imu = IMU(config.MAG_HARD_VEC, config.MAG_SOFT_TRANS)
+        # self.imu = IMU(config.MAG_HARD_VEC, config.MAG_SOFT_TRANS)
+        self.imu = IMU()
         self.imu.initialize()
         self.yaw = 0
         self.distLeft = GroveUltrasonic(ultrasonicLeftPort)
         self.distRight = GroveUltrasonic(ultrasonicRightPort)
         self.distFront = GroveUltrasonic(frontUltrasonicPort)
+        self.ev3Gyro = EV3Gyro(BP, ev3GyroPort)
 
         self.irSense = DualIR()
         self.irReadingsL = [0.0] * 25

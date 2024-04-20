@@ -1,3 +1,5 @@
+from os import set_blocking
+import re
 from lib.MPU9250 import MPU9250
 from lib.Vector2 import Vector2
 from lib.Vector3 import Vector3
@@ -17,7 +19,21 @@ class IMU:
         self.hardIronOffset = hardVec
         self.softIronTrans = softMat
         self.lastUpdated = time.time_ns()
-        self.zeroYaw = 0
+      
+        # lambertus values
+        # self.magZBaseline = 180
+        # self.magZThresh = 350
+        # self.magZBaseline = -50
+        # self.magZThresh = 30
+        self.hazCount = 0
+        self.magZBaseline = -150
+        self.magZThresh = -290
+
+        # self.yawOff = config.IMU_YAW_0_DEF
+        # self.off90 = config.IMU_OFF90_DEF
+        # self.off180 = config.IMU_OFF180_DEF
+        # self.off270 = config.IMU_OFF270_DEF
+        #
 
 
     # sets self.biases and self.std
@@ -47,13 +63,58 @@ class IMU:
         print("UNFILTRD:", math.degrees(Vector2(self.rawMag[0], self.rawMag[1]).angle()))
         print("FILTERED:", math.degrees(self.mag.xy().angle()))
 
-
     def getMag(self):
         return self.mag
 
-    def getYaw(self):
+    def getYawRaw(self):
         return self.mag.xy().angle()
-    
+
+    def readMagZBaseline(self):
+        readingSum = 0
+        readingCount = 0
+        
+        for _ in range(20):
+            self.update()
+            readingCount += 1
+            readingSum += self.mag.z
+            time.sleep(0.1)
+
+        self.magZBaseline = readingSum / readingCount
+
+    def readMagZThresh(self):
+        readingSum = 0
+        readingCount = 0
+        
+        for _ in range(20):
+            self.update()
+            readingCount += 1
+            readingSum += self.mag.z
+            time.sleep(0.1)
+
+        self.magZThresh = readingSum / readingCount
+
+
+    def hasHazard(self):
+        if self.magZThresh > self.magZBaseline:
+            if self.mag.z > self.magZThresh:
+                self.hazCount += 1
+            elif self.hazCount > 0:
+                self.hazCount -= 1
+        else:
+            if self.mag.z < self.magZThresh:
+                self.hazCount += 1
+            elif self.hazCount > 0:
+                self.hazCount -= 1
+
+        if self.hazCount > 3:
+            return True
+        return False
+
+    def printHazInfo(self):
+        print("magZBase:", self.magZBaseline)
+        print("magZThresh:", self.magZThresh)
+
+
     def getYawRate(self):
         return self.gyro.z
 

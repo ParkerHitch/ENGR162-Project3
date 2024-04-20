@@ -6,6 +6,7 @@ dt = 0
 dtNS = 0
 
 last = 0
+now = 0
 
 def tick():
     global dt, now, last

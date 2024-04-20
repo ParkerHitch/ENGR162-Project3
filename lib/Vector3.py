@@ -25,5 +25,8 @@ class Vector3:
     def xy(self):
         return Vector2(self.x, self.y)
 
+    def cleanStr(self):
+        return "{:.3f}, {:.3f}, {:.3f}".format(self.x, self.y,self.z)
+
     def __str__(self):
         return "" + str(self.x) + ", " + str(self.y) + ", " + str(self.z)

@@ -19,7 +19,7 @@ BP_PORT_D = 0x08
 
 ### --- Robot Characeteristics ---
 # Radius of wheels (inches)
-WHEEL_RADIUS = 2.75 / 2
+WHEEL_RADIUS = 1.42
 # Distance between centers of 2 wheels width-wise (inches)
 WHEEL_SEPARATION = 6.5
 
@@ -34,7 +34,7 @@ ULTRASONIC_FORWARD_OFFSET = 4.5
 ### --- Sensor Characteristics ---
 # Standard deviation of the grovepi ultrasonic sensors (cm)
 G_ULTRASONIC_STDEV = 2.5
-IR_THRESH = 75
+IR_THRESH = 100
 
 MAG_HARD_VEC = np.array([-10.7330, 12.4613, -47.3299])
 MAG_SOFT_TRANS = np.array([[1.0584, -0.0169, 0.0524],
@@ -43,13 +43,19 @@ MAG_SOFT_TRANS = np.array([[1.0584, -0.0169, 0.0524],
 
 IMU_PITCH = radians(6)
 
+IMU_YAW_0_DEF = 0
+IMU_OFF90_DEF = pi/2
+IMU_OFF180_DEF = pi
+IMU_OFF270_DEF = 3*pi/2
+
+
 # in inches per second^2
 GRAVITY = 386.0886
 
 ### --- Maze Characteristics ---
 # Width of a typical square (inches)
 MAZE_GRID_SIZE = rmath.cm2in(40)
-# MAZE_GRID_SIZE = 16
+# MAZE_GRID_SIZE = 14.25
 
 MAZE_UNKNOWN_LOWER = 0.4
 MAZE_UNKNOWN_UPPER = 0.6

@@ -78,6 +78,13 @@ class Maze:
             if w < config.MAZE_UNKNOWN_UPPER and w > config.MAZE_UNKNOWN_LOWER:
                 count += 1
         return count == 4
+    def isCompletelyExplored(self, tileX, tileY):
+        count = 0
+        for d in range(4):
+            w = self.isWall(tileX, tileY, d)
+            if w < config.MAZE_UNKNOWN_UPPER and w > config.MAZE_UNKNOWN_LOWER:
+                count += 1
+        return count == 0
 
     # Params: x&y pos of tile. dir: 0 = +x, 1 = +y, 2 = -x, 3 = -y
     def setWallUnsafe(self, tileX: int, tileY: int, dir: int, val: float):
@@ -170,7 +177,7 @@ class Maze:
         i = 0
         for d in range(nearestYaw+3, nearestYaw+3+3):
             dir = d % 4
-            if(readings[i] > config.MAZE_GRID_SIZE):
+            if(readings[i] > 0.75* config.MAZE_GRID_SIZE):
                 print(d,"-0",readings[i])
                 self.setWall(lrCol, robotRow, dir, 0)
             else:
