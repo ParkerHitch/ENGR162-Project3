@@ -63,7 +63,8 @@ def enabledPeriodic():
     if state == 1:
         test = gnc.mainMazeLoop()
         if test:
-            state = -1
+            gnc.startDropoff()
+            state = 10
     elif state == 10:
         gnc.updateDropoff()
     elif state == 600:
@@ -79,24 +80,24 @@ def enabledPeriodic():
             print("RUN!!!!!!!!!!!!!!!!!!")
             sensors.imu.hazCount = 0
 
-    elif state == 300:
-        localizer.update()
-        rot = gnc.rotPID.updateLoop(localizer.getYaw())
-        dt.setPowers(-rot, rot)
-        print("YAW", localizer.getYaw())
-        print("THETADOT", localizer.getThetaDot())
-    elif state == 301:
-        localizer.update()
-        rot = gnc.rotPID.updateLoop(localizer.getYaw())
-        dt.setPowers(-0.2, 0.2)
-        print("YAW", localizer.getYaw())
-        print("THETADOT", localizer.getThetaDot())       
-    elif state == 302:
-        if gnc.wheelRadiusTest():
-            dt.setPowers(0,0)
-            state = 0
-    elif state == 303:
-        gnc.backDriveTest()
+    # elif state == 300:
+    #     localizer.update()
+    #     rot = gnc.rotPID.updateLoop(localizer.getYaw())
+    #     dt.setPowers(-rot, rot)
+    #     print("YAW", localizer.getYaw())
+    #     print("THETADOT", localizer.getThetaDot())
+    # elif state == 301:
+    #     localizer.update()
+    #     rot = gnc.rotPID.updateLoop(localizer.getYaw())
+    #     dt.setPowers(-0.2, 0.2)
+    #     print("YAW", localizer.getYaw())
+    #     print("THETADOT", localizer.getThetaDot())       
+    # elif state == 302:
+    #     if gnc.wheelRadiusTest():
+    #         dt.setPowers(0,0)
+    #         state = 0
+    # elif state == 303:
+    #     gnc.backDriveTest()
     return
 
 # runs once when robot becomes disabled (including when powered on)
@@ -105,7 +106,7 @@ def onDisable():
 
 # runs 50 times per second while disabled
 def disabledPeriodic():
-    global state, dt, gnc, sensors
+    global state, dt, gnc, sensors, maze
     dt.setPowers(0,0)
     gnc.unpowerCargo()
     state = int(input("Enter new state: "))
@@ -116,11 +117,32 @@ def disabledPeriodic():
         state = 1
     elif state == 10:
         gnc.startDropoff()
-    elif state == -2:
-        state = 0
-        print(gnc.mazePath)
+    # elif state == -2:
+    #     state = 0
+    #     print(gnc.mazePath)
     elif state == -3:
         gnc.maze.print()
+    elif state == -4:
+        gnc.maze.printRealFormat()
+
+    elif state == 20:
+        prefix = input("Enter prefix for CSVs: ")
+        maze.saveMapToFile(prefix + "team08_map.csv")
+        maze.saveHazToFile(prefix + "team08_haz.csv")
+        print(f"Saved to: {prefix}team08_map.csv and {prefix}team08_haz.csv!")
+        state = 0
+
+    elif state == 21:
+        test = input("Trimming map. Enter y to confirm: ")
+        if test=="y":
+            maze.trimSelf()
+            print("Trimming success!")
+        else:
+            print("Did not trim")
+        state = 0
+
+
+
     elif state == -600:
         sensors.imu.readMagZBaseline()
         state = 0
@@ -132,15 +154,15 @@ def disabledPeriodic():
     elif state == -500:
         print("IR READINGS", sensors.irSense.IR_Read())
     
-    elif state == 302:
-        gnc.zeroDTWheels()
-    elif state == 303:
-        gnc.startBackDriveTest()
+    # elif state == 302:
+    #     gnc.zeroDTWheels()
+    # elif state == 303:
+    #     gnc.startBackDriveTest()
     elif state == -302:
         print(dt.getLEncoder(), dt.getREncoder())
         state = 0
-    elif state == 300:
-        gnc.rotPID.setDest(math.pi/2)
+    # elif state == 300:
+    #     gnc.rotPID.setDest(math.pi/2)
     return
 
 

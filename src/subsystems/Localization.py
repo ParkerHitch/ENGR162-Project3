@@ -232,6 +232,12 @@ class KalmanLocalizer:
             diffX = expectedReadingX - readingX
             diffYR = expectedReadingRY - readingRY
             diffYL = expectedReadingLY - readingLY
+            
+            if distLeft > 0.75 * config.MAZE_GRID_SIZE:
+                diffYL = 0
+            if distRight > 0.75 * config.MAZE_GRID_SIZE:
+                diffYR = 0
+
             diffY = (diffYR*(distLeft**2) + diffYL*(distRight**2)) / (distLeft**2 + distRight**2)
             # print("readingX", readingX)
             # print("readingLY", readingLY)
@@ -275,6 +281,12 @@ class KalmanLocalizer:
             diffY = expectedReadingY - readingY
             diffXR = expectedReadingRX - readingRX
             diffXL = expectedReadingLX - readingLX
+
+            if distLeft > 0.75 * config.MAZE_GRID_SIZE:
+                diffXL = 0
+            if distRight > 0.75 * config.MAZE_GRID_SIZE:
+                diffXR = 0
+
             diffX = (diffXR*(distLeft**2) + diffXL*(distRight**2)) / (distLeft**2 + distRight**2)
      
             # print("readingX", readingY)

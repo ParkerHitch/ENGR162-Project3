@@ -60,3 +60,6 @@ MAZE_GRID_SIZE = rmath.cm2in(40)
 MAZE_UNKNOWN_LOWER = 0.4
 MAZE_UNKNOWN_UPPER = 0.6
 
+# Output files
+MAP_NUM = 6
+

@@ -1,8 +1,6 @@
 from lib.Vector2 import Vector2
-from typing import List
 import math
 import config
-import lib.RMath as rmath
 
 # Maze composed of tiles and walls
 # Each tile has 4 walls that can either be open or closed
@@ -40,6 +38,7 @@ class Maze:
 
         self.magHazards = []
         self.irHazards  = []
+        self.exitPoint  = None
         
         if tilesW%2 == 1:
             self.firstTileX = centerX - (tilesW//2)
@@ -133,11 +132,14 @@ class Maze:
 
         self.setWallUnsafe(tileX, tileY, dir, val)
 
-    def addIrHazard(self, tileX, tileY):
-        self.irHazards.append((tileX, tileY))
+    def setEndpoint(self, tileX, tileY):
+        self.exitPoint = [tileX, tileY]
 
-    def addMagHazard(self, tileX, tileY):
-        self.magHazards.append((tileX, tileY))
+    def addIrHazard(self, tileX, tileY, strength):
+        self.irHazards.append((tileX, tileY, strength))
+
+    def addMagHazard(self, tileX, tileY, strength):
+        self.magHazards.append((tileX, tileY, strength))
 
     def isSafe(self, tile) -> bool:
         for hazT in [self.irHazards, self.magHazards]:
@@ -145,6 +147,24 @@ class Maze:
                 if tile[0]==haz[0] and tile[1]==haz[1]:
                     return False
         return True
+
+    def isIr(self, tileX, tileY):
+        for haz in self.irHazards:
+            if tileX==haz[0] and tileY==haz[1]:
+                return True
+        return False
+
+    def isMag(self, tileX, tileY):
+        for haz in self.magHazards:
+            if tileX==haz[0] and tileY==haz[1]:
+                return True
+        return False
+
+    def isExit(self, tileX, tileY):
+        if self.exitPoint != None:
+            if tileX == self.exitPoint[0] and tileY == self.exitPoint[1]:
+                return True
+        return False
 
     def print(self):
         for i in range(len(self.vertWalls)):
@@ -165,6 +185,149 @@ class Maze:
             print(" ", end="")
         print()
 
+    
+    def coordsRelativeToLL(self, tileX, tileY):
+        return (tileX - self.firstTileX, tileY - self.lastTileY)
+
+
+    def trimSelf(self):
+        newVertWalls = []
+        newHorzWalls = []
+        newFirstY = 0
+        newLastY = self.lastTileY
+        newFirstX = 0
+        newLastX = self.lastTileX
+
+        for y in range(self.firstTileY, 0, -1):
+            for x in range(self.firstTileX, self.lastTileX+1):
+                if not self.isCompletelyUnexplored(x, y):
+                    newFirstY = y
+                    break
+                if self.isIr(x,y) or self.isMag(x,y) or self.isExit(x,y):
+                    newFirstY = y
+                    break
+            else:
+                continue
+            break
+
+        for y in range(newFirstY, self.lastTileY - 1, -1):
+            for x in range(self.firstTileX, self.lastTileX+1):
+                if not self.isCompletelyUnexplored(x, y):
+                    # print("partialX",y)
+                    break
+                if self.isIr(x,y) or self.isMag(x,y) or self.isExit(x,y):
+                    # print("obj",y)
+                    break
+            else:
+                newLastY = y + 1
+                break
+            continue
+
+        newVertWalls = self.vertWalls[self.firstTileY-newFirstY : self.firstTileY-newLastY + 1]
+        for c in range(0, len(self.horzWalls)):
+            newHorzWalls.append(self.horzWalls[c][self.firstTileY-newFirstY : self.firstTileY-newLastY + 2])
+
+        self.firstTileY = newFirstY
+        self.lastTileY = newLastY 
+        self.vertWalls = newVertWalls
+        self.horzWalls = newHorzWalls
+
+        # self.printRealFormat()
+
+        # print(newVertWalls)
+        # print(newHorzWalls)
+        for x in range(self.firstTileX, 0):
+            for y in range(self.firstTileY, self.lastTileY-1, -1):
+                # print(x,y)
+                if not self.isCompletelyUnexplored(x, y):
+                    newFirstX = x
+                    break
+                if self.isIr(x,y) or self.isMag(x,y) or self.isExit(x,y):
+                    newFirstX = x
+                    break
+            else:
+                continue
+            break
+
+        for x in range(newFirstX, self.lastTileX + 1):
+            for y in range(self.firstTileY, self.lastTileY-1, -1):
+                if not self.isCompletelyUnexplored(x, y):
+                    # print("partialX",x)
+                    break
+                if self.isIr(x,y) or self.isMag(x,y) or self.isExit(x,y):
+                    # print("obj",x)
+                    break
+            else:
+                newLastX = x - 1
+                break
+            continue
+
+        newHorzWalls = []
+        newVertWalls = []
+
+        newHorzWalls = self.horzWalls[newFirstX - self.firstTileX : newLastX - self.firstTileX + 1]
+        for r in range(0, len(self.vertWalls)):
+            newVertWalls.append(self.vertWalls[r][newFirstX - self.firstTileX: newLastX - self.firstTileX + 2])
+
+        # print(newHorzWalls)
+        # print(newVertWalls)
+
+        self.firstTileX = newFirstX
+        self.lastTileX = newLastX
+        self.vertWalls = newVertWalls
+        self.horzWalls = newHorzWalls
+
+
+        # print(newFirstX, newLastX)
+        # print(newFirstY, newLastY)
+
+
+
+    def printRealFormat(self):
+        print(self.toStrRealFormat())
+
+    def toStrRealFormat(self):
+        str = ""
+        # Reminder that first and last are both inclusive
+        for y in range(self.firstTileY, self.lastTileY-1, -1):
+            for x in range(self.firstTileX, self.lastTileX+1):
+                if x==0 and y==0:
+                    str += '5'
+                elif self.isIr(x,y):
+                    str += '2'
+                elif self.isMag(x,y):
+                    str += '3'
+                elif self.isExit(x, y):
+                    str += '4'
+                elif self.isCompletelyExplored(x, y):
+                    str += '1'
+                else:
+                    str += '0'
+                if(x!=self.lastTileX):
+                    str += ','
+            str += '\n'
+        return str
+
+    def saveMapToFile(self, fName):
+        with open(fName, "w") as outfile:
+            outfile.write(f"Team: 08\nMap: {config.MAP_NUM}\nUnit Length: {config.MAZE_GRID_SIZE:.2f}\nUnit: in\n")
+            origin = self.coordsRelativeToLL(0,0)
+            outfile.write(f"Origin: ({origin[0]},{origin[1]})\n")
+            outfile.write("Notes: Map generated by the absolute ballers that are Team 8 :)\n")
+            outfile.write(self.toStrRealFormat())
+            
+
+    def saveHazToFile(self, fName):
+        with open(fName, "w") as outfile:
+            outfile.write(f"Team: 08\nMap: {config.MAP_NUM}\n")
+            outfile.write("Notes: All coordinates are relative to the GEARS starting location. Assume that the GEARS starts pointing in the +x direction. The +y direction is, of course, 90 degrees CCW from +x. Basically everything should line up with the map generated in the other csv file.\n")
+            outfile.write("\nHazard Type, Parameter of Interest, Parameter Value, Hazard X Coordinate (in), Hazard Y Coordinate (in)\n")
+            for magHaz in self.magHazards:
+                outfile.write(f"Electrical/Magnetic Activity Source, Field strength (uT), {magHaz[2]:.0f}, {magHaz[0]*config.MAZE_GRID_SIZE:.2f}, {magHaz[1]*config.MAZE_GRID_SIZE:.2f}\n")
+            for irHaz in self.irHazards:
+                outfile.write(f"High Temperature Heat Source, Radiated Power (W), {irHaz[2]}, {irHaz[0]*config.MAZE_GRID_SIZE:.2f}, {irHaz[1]*config.MAZE_GRID_SIZE:.2f}\n")
+
+
 # actual intense logic
 
     def update3Sense(self, robotPos: Vector2, yaw: float, readings):
@@ -177,7 +340,7 @@ class Maze:
         i = 0
         for d in range(nearestYaw+3, nearestYaw+3+3):
             dir = d % 4
-            if(readings[i] > 0.75* config.MAZE_GRID_SIZE):
+            if(readings[i] > 0.5 * config.MAZE_GRID_SIZE):
                 print(d,"-0",readings[i])
                 self.setWall(lrCol, robotRow, dir, 0)
             else:

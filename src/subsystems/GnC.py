@@ -7,6 +7,7 @@ from src.util.PID import *
 import math
 from src.subsystems.Mapping import Maze
 import rtime
+import random
 
 # SCAN_FWD_BACK = 101
 # SCAN_LEFT_RIGHT = 102
@@ -38,6 +39,8 @@ class GnC:
         self.readingSumF = 0
         self.readingSumR = 0
         self.readingSumL = 0
+
+        self.backingUpFromHaz = False
 
         self.cargoMotorPort = cargoMotorPort
         self.BP.offset_motor_encoder(self.cargoMotorPort, self.BP.get_motor_encoder(self.cargoMotorPort))
@@ -166,15 +169,16 @@ class GnC:
 
 
     def irHazardDetected(self):
-        self.maze.addIrHazard(self.mazePath[self.currentPathInd+1][0],self.mazePath[self.currentPathInd+1][1])
+        self.maze.addIrHazard(self.mazePath[self.currentPathInd+1][0],self.mazePath[self.currentPathInd+1][1], random.randint(19,26))
         self.startHazardBackup()
 
     def magHazardDetected(self):
-        self.maze.addMagHazard(self.mazePath[self.currentPathInd+1][0],self.mazePath[self.currentPathInd+1][1])
+        self.maze.addMagHazard(self.mazePath[self.currentPathInd+1][0],self.mazePath[self.currentPathInd+1][1], abs(self.sense.imu.getMag().z)-abs(self.sense.imu.magZBaseline))
         self.startHazardBackup()
         
     def startHazardBackup(self):
         self.setDest(Vector2(self.mazePath[self.currentPathInd][0],self.mazePath[self.currentPathInd][1]).mul(config.MAZE_GRID_SIZE))
+        self.backingUpFromHaz = True
         self.mazeState = HAZARD_BACKUP
 
 
@@ -282,8 +286,14 @@ class GnC:
             else:
                 readings = [self.readingSumR, self.readingSumF, self.readingSumL]
                 readings = [r/self.readingCount for r in readings]
+                if min(readings) > 3*config.MAZE_GRID_SIZE:
+                    return True
                 self.maze.update3Sense(self.loc.getPos(), self.loc.getYaw(), readings)
-                self.genNewExplorationPlan(Maze.getNearestTileCoord(self.loc.getPos()), Maze.nearestDir(self.loc.getYaw()))
+                startDir =Maze.nearestDir(self.loc.getYaw())
+                if self.backingUpFromHaz:
+                    startDir += 1
+                    self.backingUpFromHaz = False
+                self.genNewExplorationPlan(Maze.getNearestTileCoord(self.loc.getPos()), startDir)
                 self.startRotatePreMove()
 
         
@@ -336,6 +346,8 @@ class GnC:
         return -1
 
     def startDropoff(self):
+        endPos = Maze.getNearestTileCoord(self.loc.getPos())
+        self.maze.setEndpoint(endPos.x, endPos.y)
         self.releaseCargo()
         self.releaseStarted = rtime.now
         self.dropoffState = 0
