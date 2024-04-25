@@ -1,0 +1,6 @@
+Team: 08
+Map: 6
+Notes: All coordinates are relative to the GEARS starting location. Assume that the GEARS starts pointing in the +x direction. The +y direction is, of course, 90 degrees CCW from +x. Basically everything should line up with the map generated in the other csv file.
+
+Hazard Type, Parameter of Interest, Parameter Value, Hazard X Coordinate (in), Hazard Y Coordinate (in)
+Electrical/Magnetic Activity Source, Field strength (uT), 96, 31.50, 0.00

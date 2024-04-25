@@ -30,7 +30,7 @@ def robotInit():
     dt.setPowers(0,0)
     sensors = SensorArray(BP, 2, 7, 8, config.BP_PORT_1)   
     # sensors.zeroUltrasonicRotor()
-    maze = Maze(21,21)
+    maze = Maze(31,31)
     localizer = KalmanLocalizer(sensors, dt)
 
     gnc = GnC(dt, sensors, localizer, maze, config.BP_PORT_B, BP)

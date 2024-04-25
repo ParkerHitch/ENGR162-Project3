@@ -355,12 +355,12 @@ class GnC:
     def updateDropoff(self):
         if self.dropoffState == 0:
             self.dt.setPowers(0,0)
-            if rtime.now - self.releaseStarted > 5:
+            if rtime.now - self.releaseStarted > 2:
                 self.dt.setPowers(0.2, 0.2)
                 self.dropoffState = 1
         elif self.dropoffState == 1:
             self.dt.setPowers(0.2, 0.2)
-            if rtime.now - self.releaseStarted > 7:
+            if rtime.now - self.releaseStarted > 4:
                 self.dropoffState = 2
         elif self.dropoffState == 2:
             elapsedTime = rtime.now - self.releaseStarted

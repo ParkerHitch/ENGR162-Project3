@@ -1,5 +1,3 @@
-from os import set_blocking
-import re
 from lib.MPU9250 import MPU9250
 from lib.Vector2 import Vector2
 from lib.Vector3 import Vector3
@@ -26,8 +24,10 @@ class IMU:
         # self.magZBaseline = -50
         # self.magZThresh = 30
         self.hazCount = 0
-        self.magZBaseline = -150
-        self.magZThresh = -290
+        # self.magZBaseline = -150
+        # self.magZThresh = -290
+        self.magZBaseline = config.MAG_Z_BASE
+        self.magZThresh = config.MAG_Z_THRESH
 
         # self.yawOff = config.IMU_YAW_0_DEF
         # self.off90 = config.IMU_OFF90_DEF

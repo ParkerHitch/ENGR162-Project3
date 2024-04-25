@@ -34,7 +34,11 @@ ULTRASONIC_FORWARD_OFFSET = 4.5
 ### --- Sensor Characteristics ---
 # Standard deviation of the grovepi ultrasonic sensors (cm)
 G_ULTRASONIC_STDEV = 2.5
+
 IR_THRESH = 100
+MAG_Z_BASE = 9
+MAG_Z_THRESH = 400
+
 
 MAG_HARD_VEC = np.array([-10.7330, 12.4613, -47.3299])
 MAG_SOFT_TRANS = np.array([[1.0584, -0.0169, 0.0524],
